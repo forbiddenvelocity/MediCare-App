@@ -1,11 +1,22 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 const OnboardingScreen = ({ navigation }) => {
+    const handlePressSpeaker = () => {
+        // Logic to start recording audio
+        console.log('Start recording audio');
+      };
+
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Select patient's problem type</Text>
       <Text style={styles.subtitle}>Use speech-to-text</Text>
+
+      <TouchableOpacity onPress={handlePressSpeaker} style={styles.speakerButton}>
+        <Icon name="keyboard-voice" size={30} color="#000" />
+      </TouchableOpacity>
       
       <View style={styles.grid}>
         {/* Placeholder for the grid items */}
@@ -32,6 +43,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+  },
+  speakerButton: {
+    alignSelf: 'center', 
+    padding: 10,
+    paddingBottom: 100,
+    color: '#666',
   },
   title: {
     fontSize: 24,
