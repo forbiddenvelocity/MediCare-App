@@ -1,17 +1,18 @@
 import React from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 
 const WelcomeScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
+      <Image
+  source={require('../../assets/WelcomeAsset.jpg')}
+  style={styles.image}
+/>
       <Text style={styles.header}>MediCare</Text>
       <Text style={styles.subheader}>Manage patient data effectively</Text>
-      <View style={styles.buttonContainer}>
-        <Button
-          title="Enter"
-          onPress={() => navigation.navigate('Onboarding')} // Navigates to OnboardingScreen
-        />
-      </View>
+      <TouchableOpacity style={styles.ignoreButton} onPress={() => navigation.navigate('Onboarding')}>
+          <Text style={styles.ignoreButtonText}>Enter</Text>
+        </TouchableOpacity>
     </View>
   );
 };
@@ -24,23 +25,38 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#ffffff',
   },
+  image: {
+    width: 400, 
+    height: 400, 
+    resizeMode: 'contain'
+  },
+  ignoreButton: {
+    backgroundColor: '#000', 
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  ignoreButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
   header: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 10,
-    color: '#000', // Adjust the color to match your design
+    color: '#000', 
   },
   subheader: {
     fontSize: 18,
-    color: '#666', // Adjust the color to match your design
+    color: '#666', 
     marginBottom: 30,
     textAlign: 'center',
   },
   buttonContainer: {
-    width: '100%', // Full width button
-    paddingHorizontal: 30, // Horizontal padding for the button
+    width: '100%', 
+    paddingHorizontal: 30, 
     color: '#000',
-    borderRadius: '20px',
   },
 });
 
