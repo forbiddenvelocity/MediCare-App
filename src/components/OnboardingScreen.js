@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { PermissionsAndroid, Platform } from 'react-native';
 import { Audio } from 'expo-av';
 
 
@@ -58,7 +57,14 @@ const OnboardingScreen = ({ navigation }) => {
     }
   };
 
-  
+  const data = [
+    'Alzheimers',
+    'Schizophernia',
+    'Parkinsons',
+    'Bipolar Disorder',
+    'Autism',
+    'Dyslexia',
+  ]
 
 
   return (
@@ -71,12 +77,11 @@ const OnboardingScreen = ({ navigation }) => {
       </TouchableOpacity>
       
       <View style={styles.grid}>
-        {/* Placeholder for the grid items */}
-        {Array.from({ length: 6 }).map((_, index) => (
-          <TouchableOpacity key={index} style={styles.gridItem} onPress={() => {}}>
-            <Text style={styles.gridItemText}>Placeholder {index + 1}</Text>
-          </TouchableOpacity>
-        ))}
+      {data.map((dataText, index) => (
+        <TouchableOpacity key={index} style={styles.gridItem} onPress={() => {}}>
+          <Text style={styles.gridItemText}>{dataText}</Text>
+        </TouchableOpacity>
+      ))}
       </View>
 
       <View style={styles.footer}>
@@ -87,6 +92,12 @@ const OnboardingScreen = ({ navigation }) => {
           <Text style={styles.continueButtonText}>Continue</Text>
         </TouchableOpacity>
       </View>
+      <View>
+      <Image 
+        source = {require('../../assets/Medicare.png')}
+        style={styles.logo}
+      />
+      </View>
     </ScrollView>
   );
 };
@@ -96,6 +107,12 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     color: '#fff',
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    resizeMode: 'contain',
+    alignSelf: 'center',
   },
   speakerButton: {
     alignSelf: 'center', 
@@ -120,6 +137,7 @@ const styles = StyleSheet.create({
   },
   gridItem: {
     width: '48%', // approximately 50% minus margin
+    height: '50%',
     aspectRatio: 1,
     justifyContent: 'center',
     alignItems: 'center',

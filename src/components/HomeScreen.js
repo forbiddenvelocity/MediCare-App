@@ -2,6 +2,16 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 
 const HomeScreen = ({ navigation }) => {
+
+  const data = [
+    'Medical Records',
+    'Upload Patient',
+    'Patient History',
+    'Search and Filter',
+    'Appointments',
+    'Notes',
+  ]
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -28,12 +38,11 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Medical</Text>
         <View style={styles.grid}>
-          {/* Placeholder for grid items */}
-          {Array.from({ length: 6 }).map((_, index) => (
-            <View key={index} style={styles.gridItem}>
-              <Text style={styles.gridItemText}>Placeholder</Text>
-            </View>
-          ))}
+        {data.map((dataText, index) => (
+        <TouchableOpacity key={index} style={styles.gridItem} onPress={() => {}}>
+          <Text style={styles.gridItemText}>{dataText}</Text>
+        </TouchableOpacity>
+      ))}
         </View>
       </View>
     </ScrollView>
