@@ -29,7 +29,7 @@ const HomeScreen = ({ navigation }) => {
         <Text style={styles.sectionTitle}>Medical</Text>
         <View style={styles.grid}>
           {/* Placeholder for grid items */}
-          {Array.from({ length: 8 }).map((_, index) => (
+          {Array.from({ length: 6 }).map((_, index) => (
             <View key={index} style={styles.gridItem}>
               <Text style={styles.gridItemText}>Placeholder</Text>
             </View>
@@ -102,6 +102,7 @@ const styles = StyleSheet.create({
   gridItem: {
     width: '48%', // approximately 50% minus margin
     aspectRatio: 1,
+    height: '50%',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f0f0f0',

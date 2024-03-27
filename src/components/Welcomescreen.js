@@ -4,6 +4,10 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 const WelcomeScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
+      <Image 
+        source = {require('../../assets/Medicare.png')}
+        style={styles.logo}
+      />
       <Image
   source={require('../../assets/WelcomeAsset.jpg')}
   style={styles.image}
@@ -25,9 +29,16 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#ffffff',
   },
+  logo: {
+    width: 150,
+    height: 150,
+    resizeMode: 'stretch',
+    paddingBottom: '10',
+
+  },
   image: {
-    width: 400, 
-    height: 400, 
+    width: 300, 
+    height: 300, 
     resizeMode: 'contain'
   },
   ignoreButton: {
