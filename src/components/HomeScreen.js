@@ -17,7 +17,7 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.header}>
         <Text style={styles.title}>Welcome to MediCarePro</Text>
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.button}>
+          <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Login')}>
             <Text style={styles.buttonText}>Login</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Onboarding')}>
