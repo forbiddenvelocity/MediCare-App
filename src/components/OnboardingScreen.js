@@ -57,6 +57,12 @@ const OnboardingScreen = ({ navigation }) => {
     }
   };
 
+  const [transcribedText, setTranscribedText] = useState('Your transcribed text will appear here...');
+
+  const handleDownload = () => {
+    // Implement the logic to handle the download action
+  };
+
   const data = [
     'Alzheimers',
     'Schizophernia',
@@ -75,6 +81,13 @@ const OnboardingScreen = ({ navigation }) => {
       <TouchableOpacity onPress={handlePressSpeaker} style={styles.speakerButton}>
         <Icon name="keyboard-voice" size={30} color={isRecording ? "red" : "#000"} /> 
       </TouchableOpacity>
+
+      <View style={styles.textDisplayContainer}>
+        <Text style={styles.transcribedText}>{transcribedText}</Text>
+        <TouchableOpacity style={styles.downloadIcon} onPress={handleDownload}>
+          <Icon name="file-download" size={24} color="#000" />
+        </TouchableOpacity>
+      </View>
       
       <View style={styles.grid}>
       {data.map((dataText, index) => (
@@ -117,7 +130,7 @@ const styles = StyleSheet.create({
   speakerButton: {
     alignSelf: 'center', 
     padding: 10,
-    paddingBottom: 100,
+    paddingBottom: 40,
     color: '#666',
   },
   title: {
@@ -179,6 +192,28 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     fontWeight: 'bold',
+  },
+  textDisplayContainer: {
+    backgroundColor: '#fff',
+    margin: 10,
+    padding: 20,
+    minHeight: 200,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    position: 'relative', // Added for absolute positioning of the download icon
+  },
+  transcribedText: {
+    fontSize: 16,
+    color: 'darkblue',
+  },
+  downloadIcon: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
   },
 });
 
