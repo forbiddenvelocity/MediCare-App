@@ -14,7 +14,7 @@ const WelcomeScreen = ({ navigation }) => {
 />
       <Text style={styles.header}>MediCare</Text>
       <Text style={styles.subheader}>Manage patient data effectively</Text>
-      <TouchableOpacity style={styles.ignoreButton} onPress={() => navigation.navigate('Onboarding')}>
+      <TouchableOpacity style={styles.ignoreButton} onPress={() => navigation.navigate('Login')}>
           <Text style={styles.ignoreButtonText}>Enter</Text>
         </TouchableOpacity>
     </View>
