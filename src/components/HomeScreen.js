@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 
-const App = () => {
+const App = ({ navigation }) => {
   return (
     <ScrollView style={styles.container}>
       <Card
@@ -12,9 +12,10 @@ const App = () => {
       <Card
         title="Manage your patients' records"
         content={[
-          { label: 'View existing', icon: 'file-text-o' },
-          { label: 'Add new', icon: 'plus-square-o' }
+          { label: 'View existing', icon: 'file-text-o', navigate: 'Patient' },
+          { label: 'Add new', icon: 'plus-square-o', navigate: 'AddNew' } // Added navigation to 'AddNewScreen'
         ]}
+        navigation={navigation}
       />
       <Card
         title="Patient Insurance Options"
@@ -24,6 +25,7 @@ const App = () => {
           { label: 'Car Insurance', icon: 'car' },
           { label: 'Life Insurance', icon: 'user-o' }
         ]}
+        navigation={navigation}
       />
       <Card
         title="New Insurance Plans"
@@ -31,12 +33,19 @@ const App = () => {
           { label: 'Work Insurance', icon: 'briefcase' },
           { label: 'Group Insurance', icon: 'users' }
         ]}
+        navigation={navigation}
       />
     </ScrollView>
   );
 };
 
-const Card = ({ title, content = [], isImageCard = false }) => {
+const Card = ({ title, content = [], isImageCard = false, navigation }) => {
+  const handlePress = (navigate) => {
+    if (navigate && navigation) {
+      navigation.navigate(navigate);
+    }
+  };
+
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>
@@ -44,7 +53,11 @@ const Card = ({ title, content = [], isImageCard = false }) => {
         <Image style={styles.cardImage} source={{ uri: 'https://media.istockphoto.com/photos/medical-records-picture-id512336518?k=6&m=512336518&s=612x612&w=0&h=wLLR3RRrhOG5iVBWUgYJSrNIDinl-ESEKmoUtGs0NT8=' }} />
       ) : (
         content.map((item, index) => (
-          <TouchableOpacity key={index} style={styles.button}>
+          <TouchableOpacity 
+            key={index} 
+            style={styles.button}
+            onPress={() => handlePress(item.navigate)}
+          >
             <FontAwesome name={item.icon} size={24} color="black" />
             <Text style={styles.buttonText}>{item.label}</Text>
           </TouchableOpacity>
