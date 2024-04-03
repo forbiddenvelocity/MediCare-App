@@ -52,7 +52,7 @@ const PatientFormScreen = () => {
         {
           headers: {
             "Content-Type": "multipart/form-data",
-            "Authorization": "Bearer EPgCLYfsaQoNlLvhQ97frMFue5smpgEa",
+            "Authorization": "API_KEY",
           },
         }
       );
