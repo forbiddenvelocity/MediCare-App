@@ -1,10 +1,26 @@
 import React, { useState } from 'react';
 import { View, Text, Image, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { app } from "../../firebaseConfig.js";
 
 const LoginScreen = ({ navigation }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+
+  const signUp = () => {
+    const auth = getAuth(app);
+    createUserWithEmailAndPassword(auth, username, password)
+      .then((userCredential) => {
+        // Handle account creation success
+        console.log("User created:", userCredential.user);
+        navigation.navigate('Home'); // Navigate to the Home screen upon success
+      })
+      .catch((error) => {
+        // Handle errors here
+        console.log("Error in sign-up:", error);
+      });
+  };
 
   return (
     <View style={styles.container}>
@@ -24,8 +40,11 @@ const LoginScreen = ({ navigation }) => {
         onChangeText={setPassword}
         style={styles.input}
       />
-      <TouchableOpacity style={styles.button}  onPress={() => navigation.navigate('Home')}>
-        <Text style={styles.buttonText}>Log in</Text>
+      <TouchableOpacity style={styles.button}  onPress={signUp}>
+        <Text style={styles.buttonText}>Sign Up</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.button1}  onPress={() => navigation.navigate("LogUser")}>
+        <Text style={styles.buttonText}>Log In</Text>
       </TouchableOpacity>
       <View style={styles.rememberMeContainer}>
         <TouchableOpacity onPress={() => setRememberMe(!rememberMe)}>
@@ -71,6 +90,14 @@ const styles = StyleSheet.create({
   },
   button: { 
     backgroundColor: '#f57c00', 
+    width: '80%', 
+    padding: 15, 
+    alignItems: 'center', 
+    borderRadius: 5, 
+    marginVertical: 10 
+  },
+  button1: { 
+    backgroundColor: 'gray', 
     width: '80%', 
     padding: 15, 
     alignItems: 'center', 

@@ -11,6 +11,9 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { Audio } from "expo-av";
 import axios from "axios";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getFirestore, collection, addDoc } from 'firebase/firestore';
+import {app} from '../../firebaseConfig';
 
 const PatientFormScreen = () => {
   const navigation = useNavigation();
@@ -26,6 +29,8 @@ const PatientFormScreen = () => {
   const [isRecording, setIsRecording] = useState(false);
 
   const [transcribedText, setTranscribedText] = useState("");
+
+  const db = getFirestore(app);
 
   const uploadRecording = async (recordingUri) => {
     try {
@@ -77,19 +82,39 @@ const PatientFormScreen = () => {
     }
   };
 
-  const handleSave = useCallback(() => {
-    const newPatientData = {
-      name: patientName,
-      age,
-      medicalHistory: `${diagnosis}; ${prescription}`,
-    };
-    // Here you would normally add the newPatientData to your state containing the list of patients.
-    // For now, we'll simply navigate back.
-    navigation.goBack();
-  }, [patientName, age, diagnosis, prescription, navigation]);
+  const handleSave = useCallback(async () => {
+    try {
+      // Ensure the user is signed in to get their UID
+      const auth = getAuth(app);
+      if (auth.currentUser) {
+        // Add a new document with a generated id to the "patients" collection
+        const docRef = await addDoc(collection(db, 'patients'), {
+          name: patientName,
+          age,
+          gender,
+          address,
+          contactInfo,
+          diagnosis,
+          prescription,
+          userId: auth.currentUser.uid // Associate patient with the user's UID
+        });
+
+        console.log("Document written with ID: ", docRef.id);
+        // Navigate back to the patient list and pass along the new patient's info if needed
+        navigation.goBack(); // Or you could navigate to a specific route that displays patient details
+      } else {
+        console.error('No user signed in to add a patient.');
+      }
+    } catch (e) {
+      console.error("Error adding document: ", e);
+    }
+  }, [patientName, age, gender, address, contactInfo, diagnosis, prescription, navigation]);
+
+  
 
   const startRecording = async () => {
     try {
+      
       // Request permissions
       const permission = await Audio.requestPermissionsAsync();
       if (permission.status === "granted") {
@@ -112,6 +137,7 @@ const PatientFormScreen = () => {
     } catch (err) {
       console.error("Failed to start recording", err);
     }
+      
   };
 
   const stopRecording = async () => {
@@ -209,7 +235,7 @@ const PatientFormScreen = () => {
         <View style={styles.transcribedTextContainer}>
           <Text style={styles.transcribedText}>{transcribedText}</Text>
         </View>
-        <Text style={styles.sectionTitle}>Optical Character Recognition</Text>
+        <Text style={styles.sectionTitle1}>Optical Character Recognition</Text>
       </View>
     </ScrollView>
   );
@@ -255,6 +281,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: 8,
     fontWeight: "bold",
+  },
+  sectionTitle1: {
+    marginBottom: 8,
+    fontWeight: "bold",
+    marginTop: 35,
   },
   input: {
     backgroundColor: "#fff",

@@ -21,6 +21,7 @@ const PatientScreen = () => {
         <PatientCard name="Jane Smith" age="32" medicalHistory="Allergic to penicillin" />
         <PatientCard name="Michael Brown" age="50" medicalHistory="Cholesterol issues, Hypertension" />
         <PatientCard name="Darsh Tibrewal" age="19" medicalHistory="Allergic to Women" />
+        <PatientCard name="Mubashir" age="20" medicalHistory="Monkey" />
       </ScrollView>
       <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddNew')}>
         <Text style={styles.addButtonText}>Add Patient</Text>

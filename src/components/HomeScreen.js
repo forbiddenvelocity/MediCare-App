@@ -47,6 +47,7 @@ const Card = ({ title, content = [], isImageCard = false, navigation }) => {
   };
 
   return (
+    <>
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>
       {isImageCard ? (
@@ -63,7 +64,10 @@ const Card = ({ title, content = [], isImageCard = false, navigation }) => {
           </TouchableOpacity>
         ))
       )}
+      
     </View>
+    
+    </>
   );
 };
 
@@ -99,6 +103,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 10,
     marginBottom: 10,
+  },
+  button1: { 
+    backgroundColor: '#f57c00', 
+    width: '80%', 
+    padding: 15, 
+    alignItems: 'center', 
+    borderRadius: 5, 
+    marginVertical: 10 
   },
   buttonText: {
     marginLeft: 10,
