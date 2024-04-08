@@ -1,11 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TextInput, ScrollView, TouchableOpacity } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
 import PatientCard from './PatientCard'; // Import PatientCard component
 import { useNavigation } from '@react-navigation/native';
+import { firestore } from '../../firebaseConfig';
+import { collection, getDocs } from 'firebase/firestore';
+import { FontAwesome } from '@expo/vector-icons';
+
 
 const PatientScreen = () => {
+  const [patients, setPatients] = useState([]);
     const navigation = useNavigation();
+    
+    useEffect(() => {
+      const fetchData = async () => {
+        try {
+          const querySnapshot = await getDocs(collection(firestore, 'patients'));
+        const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setPatients(data);
+        } catch (error) {
+          console.error("Error fetching data: ", error);
+        }
+      };
+  
+      fetchData();
+    }, []);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -22,6 +41,14 @@ const PatientScreen = () => {
         <PatientCard name="Michael Brown" age="50" medicalHistory="Cholesterol issues, Hypertension" />
         <PatientCard name="Darsh Tibrewal" age="19" medicalHistory="Allergic to Women" />
         <PatientCard name="Mubashir" age="20" medicalHistory="Monkey" />
+        {patients.map(patient => (
+          <PatientCard
+            key={patient.id}
+            name={patient.name}
+            age={patient.age}
+            medicalHistory={patient.medicalHistory}
+          />
+        ))}
       </ScrollView>
       <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddNew')}>
         <Text style={styles.addButtonText}>Add Patient</Text>

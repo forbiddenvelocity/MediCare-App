@@ -1,14 +1,14 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
 import { 
-    getAuth, 
-    initializeAuth, 
-    getReactNativePersistence 
-  } from 'firebase/auth';
-  import AsyncStorage from '@react-native-async-storage/async-storage';
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+  getAuth, 
+  initializeAuth, 
+  getReactNativePersistence,
+  onAuthStateChanged 
+} from 'firebase/auth';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
-// Your web app's Firebase configuration
+// Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyDntR8yzcQ1Sq1T-Oy76e4E8L2XxlOs52c",
   authDomain: "medicare-e4404.firebaseapp.com",
@@ -18,11 +18,20 @@ const firebaseConfig = {
   appId: "1:927980491005:android:39064e68d2cc4ca339ae94"
 };
 
-// Initialize Firebase
-export const app = initializeApp(firebaseConfig);
+// Initialize Firebase only if it hasn't been initialized yet
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-const auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage)
+// Initialize Firestore
+export const firestore = getFirestore(app);
+
+// Initialize Firebase Authentication
+let auth;
+if (!getApps().length) {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(ReactNativeAsyncStorage)
   });
-  
+} else {
+  auth = getAuth(app);
+}
+
 export { auth };
