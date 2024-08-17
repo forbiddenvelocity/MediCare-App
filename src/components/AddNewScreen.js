@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,15 +7,16 @@ import {
   StyleSheet,
   ScrollView,
   Image,
+  Platform,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Audio } from "expo-av";
-import axios from "axios";
+import Voice from 'react-native-voice';
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, collection, addDoc } from "firebase/firestore";
 import { app } from "../../firebaseConfig";
-import { FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import axios from 'axios';
 
 const PatientFormScreen = () => {
   const navigation = useNavigation();
@@ -31,47 +32,24 @@ const PatientFormScreen = () => {
   const [isRecording, setIsRecording] = useState(false);
 
   const [transcribedText, setTranscribedText] = useState("");
-
   const [ocrText, setOcrText] = useState("");
   const [image, setImage] = useState(null);
 
   const db = getFirestore(app);
 
-  const recordingOptions = {
-    // Check if the following format is compatible with your API and devices
-    android: {
-      extension: '.wav',
-      outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_DEFAULT,
-      audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_DEFAULT,
-      sampleRate: 44100,
-      numberOfChannels: 2,
-      bitRate: 128000,
-    },
-    ios: {
-      extension: '.wav',
-      audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_MAX,
-      sampleRate: 44100,
-      numberOfChannels: 2,
-      bitRate: 128000,
-      linearPCMBitDepth: 16,
-      linearPCMIsBigEndian: false,
-      linearPCMIsFloat: false,
-    },
-  };
-
   const handleImagePicking = async (pickFromCamera) => {
     let pickerResult;
-
+  
     // Get permission first
     const permissionResult = await (pickFromCamera
       ? ImagePicker.requestCameraPermissionsAsync()
       : ImagePicker.requestMediaLibraryPermissionsAsync());
-
+  
     if (permissionResult.granted === false) {
       alert("Permission to access camera roll is required!");
       return;
     }
-
+  
     // Launch the picker
     pickerResult = pickFromCamera
       ? await ImagePicker.launchCameraAsync({
@@ -86,14 +64,22 @@ const PatientFormScreen = () => {
           aspect: [4, 3],
           quality: 1,
         });
-
-    if (!pickerResult.cancelled) {
-      setImage(pickerResult.uri);
-      sendToNewOCRAPI(pickerResult.uri);
+  
+    console.log('Picker Result:', pickerResult); // Log the entire result
+  
+    if (!pickerResult.canceled) {
+      const uri = pickerResult.assets && pickerResult.assets[0] && pickerResult.assets[0].uri;
+      console.log('Picked Image URI:', uri); // Ensure URI is not undefined
+      if (uri) {
+        setImage(uri);
+        await sendToOcrSpace(uri); // Send URI to OCR API
+      } else {
+        console.error('Image URI is undefined');
+      }
     }
   };
+  
 
-  // Modify handleCameraOpen and handleGalleryOpen to use handleImagePicking
   const handleCameraOpen = () => {
     handleImagePicking(true);
   };
@@ -102,85 +88,94 @@ const PatientFormScreen = () => {
     handleImagePicking(false);
   };
 
-  const sendToNewOCRAPI = async (imageUri) => {
-    try {
-      const formData = new FormData();
-      formData.append('srcImg', {
-        uri: imageUri,
-        type: 'image/png', // Adjust the MIME type to match your image type
-        name: 'image.png', // Adjust the filename to match your image
-      });
-      formData.append('Session', 'string'); // If required by the API
+  const convertToBase64 = async (uri) => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result.split(',')[1]; // Get Base64 string without prefix
+        console.log('Base64 Image Data:', base64String); // Log the Base64 string
+        resolve(base64String);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
   
-      const response = await fetch('https://ocr-image-to-text4.p.rapidapi.com/', {
+
+  const sendToOcrSpace = async (imageUri) => {
+    try {
+      const apiKey = 'K81013753788957';
+      const formData = new FormData();
+  
+      formData.append('apikey', apiKey);
+      formData.append('language', 'eng');
+      formData.append('filetype', 'png'); // Explicitly specify the file type
+  
+      formData.append('file', {
+        uri: imageUri,
+        type: 'image/png', // Ensure MIME type matches the image type
+        name: 'image.png', // Use an appropriate file name
+      });
+  
+      const response = await fetch('https://api.ocr.space/parse/image', {
         method: 'POST',
-        headers: {
-          'X-RapidAPI-Key': 'e92edab7ecmsh10154b4bee4b96cp1d7ca5jsn30f647611c4c',
-          'X-RapidAPI-Host': 'ocr-image-to-text4.p.rapidapi.com',
-          // 'Content-Type': 'multipart/form-data' may be needed, but often it's not required as fetch adds it automatically with the correct boundary.
-        },
         body: formData,
       });
   
-      const responseData = await response.json();
-      console.log('OCR Response:', responseData);
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
   
-      if (responseData && responseData.text) {
-        setOcrText(responseData.text);
+      const result = await response.json();
+      console.log('OCR Response:', result); // Log the entire response
+  
+      if (result.ParsedResults && result.ParsedResults.length > 0) {
+        setOcrText(result.ParsedResults[0].ParsedText || 'No text found');
       } else {
-        setOcrText('No text returned from OCR service');
+        setOcrText('No text found');
       }
     } catch (error) {
-      console.error('New OCR API Error: ', error);
+      console.error('OCR Error:', error); // Log any errors
       setOcrText('Error processing image');
     }
   };
   
+  
+  const handleSpeechResults = (event) => {
+    const { value } = event;
+    setTranscribedText(value.join(' '));
+  };
+
+  const startRecording = async () => {
+    try {
+      Voice.onSpeechResults = handleSpeechResults;
+      await Voice.start('en-US');
+      setIsRecording(true);
+      console.log("Started recording");
+    } catch (err) {
+      console.error("Failed to start recording", err);
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      await Voice.stop();
+      setIsRecording(false);
+      console.log("Stopped recording");
+    } catch (error) {
+      console.error("Could not stop recording", error);
+    }
+  };
 
   const uploadRecording = async (recordingUri) => {
     try {
-      const formData = new FormData();
-      formData.append("file", {
-        uri: recordingUri,
-        type: "audio/wav", // Ensure this matches the actual audio file type
-        name: "recording.wav", // The filename doesn't affect the API request
-      });
-  
-      const response = await fetch(
-        "https://whisper-speech-to-text1.p.rapidapi.com/speech-to-text",
-        {
-          method: "POST",
-          headers: {
-            "X-RapidAPI-Key": "e92edab7ecmsh10154b4bee4b96cp1d7ca5jsn30f647611c4c",
-            "X-RapidAPI-Host": "whisper-speech-to-text1.p.rapidapi.com",
-          },
-          body: formData,
-        }
-      );
-  
-      // First, check if the response was ok (status code in the range 200-299)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-  
-      // Then check the content type to make sure it's "application/json"
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new TypeError("Oops, we haven't got JSON!");
-      }
-  
-      const responseData = await response.json();
-      console.log("Transcription Response:", responseData);
-  
-      // Check for responseData.text instead of responseData.transcription
-      if (responseData && responseData.text) {
-        setTranscribedText(responseData.text); // Set the actual text returned from the API
-      } else {
-        setTranscribedText("No transcription returned from Whisper service");
-        console.log("No text field in response:", responseData);
-      }
+      // Implementation for audio upload and transcription if needed
+      // This part can be adapted to work with the transcription results from Voice API
     } catch (error) {
-      console.error("Whisper API Error: ", error);
+      console.error("Error processing audio", error);
       setTranscribedText("Error processing audio");
     }
   };
@@ -222,43 +217,11 @@ const PatientFormScreen = () => {
     navigation,
   ]);
 
-
-  const startRecording = async () => {
-    try {
-      const permission = await Audio.requestPermissionsAsync();
-      if (permission.status === 'granted') {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: true,
-          playsInSilentModeIOS: true,
-        });
-
-        // Use the recordingOptions defined above
-        const { recording } = await Audio.Recording.createAsync(recordingOptions);
-        setRecording(recording);
-        setIsRecording(true);
-        console.log("Started recording");
-      } else {
-        console.log("Permission to record audio was denied");
-      }
-    } catch (err) {
-      console.error("Failed to start recording", err);
-    }
-  };
-
-  const stopRecording = async () => {
-    try {
-      await recording.stopAndUnloadAsync();
-      const recordingUri = recording.getURI();
-      console.log("Recording stopped and stored at", recordingUri);
-      setIsRecording(false);
-      setRecording(null);
-
-      // Upload the recording and fetch the transcription
-      uploadRecording(recordingUri);
-    } catch (error) {
-      console.error("Could not stop recording", error);
-    }
-  };
+  useEffect(() => {
+    return () => {
+      Voice.destroy().then(Voice.removeAllListeners);
+    };
+  }, []);
 
   return (
     <ScrollView style={styles.container}>
@@ -371,67 +334,64 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
     padding: 16,
-  },
-  headerTitle: {
-    fontWeight: "bold",
-    fontSize: 20,
+    backgroundColor: "#f5f5f5",
   },
   headerButton: {
     fontSize: 18,
-    color: "#007AFF",
+    color: "#007bff",
   },
-  formGroup: {
-    padding: 16,
-    backgroundColor: "#f7f7f7",
-    marginVertical: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-    elevation: 2,
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
   },
   sectionTitle: {
-    marginBottom: 8,
+    fontSize: 18,
     fontWeight: "bold",
+    marginVertical: 8,
   },
   sectionTitle1: {
-    marginBottom: 8,
+    fontSize: 18,
     fontWeight: "bold",
-    marginTop: 35,
+    marginVertical: 8,
+    paddingVertical: 10,
+  },
+  formGroup: {
+    marginVertical: 8,
+    paddingHorizontal: 16,
   },
   input: {
-    backgroundColor: "#fff",
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-    elevation: 2,
-    marginBottom: 10,
+    height: 40,
+    borderColor: "#ddd",
+    borderWidth: 1,
+    borderRadius: 4,
+    marginBottom: 8,
+    paddingHorizontal: 8,
   },
   speakerIcon: {
-    width: 50,
-    height: 50,
-    alignSelf: "center",
-    marginVertical: 16,
+    width: 30,
+    height: 30,
+    marginVertical: 10,
   },
   transcribedTextContainer: {
-    backgroundColor: "#fff",
-    padding: 16,
-    shadowOffset: { width: 3, height: 3 },
-    borderRadius: 10,
-    shadowColor: "#000",
-    minHeight: 200,
-    shadowOpacity: 1.0,
-    shadowRadius: 5.41,
-    elevation: 4,
+    marginTop: 10,
+    padding: 10,
+    borderColor: "#ddd",
+    borderWidth: 1,
+    borderRadius: 4,
   },
   transcribedText: {
-    // Style for the transcribed text
+    fontSize: 16,
+  },
+  ocrTextContainer: {
+    marginTop: 10,
+    padding: 10,
+    borderColor: "#ddd",
+    borderWidth: 1,
+    borderRadius: 4,
+  },
+  ocrText: {
+    fontSize: 16,
   },
 });
 
