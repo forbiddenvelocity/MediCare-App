@@ -16,6 +16,7 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, collection, addDoc } from "firebase/firestore";
 import { app } from "../../firebaseConfig";
 import * as ImagePicker from "expo-image-picker";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Import Storage functions
 import axios from 'axios';
 
 const PatientFormScreen = () => {
@@ -27,29 +28,28 @@ const PatientFormScreen = () => {
   const [contactInfo, setContactInfo] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
   const [prescription, setPrescription] = useState("");
-
   const [recording, setRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
-
   const [transcribedText, setTranscribedText] = useState("");
   const [ocrText, setOcrText] = useState("");
   const [image, setImage] = useState(null);
 
   const db = getFirestore(app);
+  const storage = getStorage(app); // Initialize Firebase Storage
 
   const handleImagePicking = async (pickFromCamera) => {
     let pickerResult;
-  
+
     // Get permission first
     const permissionResult = await (pickFromCamera
       ? ImagePicker.requestCameraPermissionsAsync()
       : ImagePicker.requestMediaLibraryPermissionsAsync());
-  
+
     if (permissionResult.granted === false) {
       alert("Permission to access camera roll is required!");
       return;
     }
-  
+
     // Launch the picker
     pickerResult = pickFromCamera
       ? await ImagePicker.launchCameraAsync({
@@ -64,21 +64,114 @@ const PatientFormScreen = () => {
           aspect: [4, 3],
           quality: 1,
         });
-  
+
     console.log('Picker Result:', pickerResult); // Log the entire result
-  
+
     if (!pickerResult.canceled) {
       const uri = pickerResult.assets && pickerResult.assets[0] && pickerResult.assets[0].uri;
       console.log('Picked Image URI:', uri); // Ensure URI is not undefined
       if (uri) {
         setImage(uri);
-        await sendToOcrSpace(uri); // Send URI to OCR API
+        await handleUploadAndOcr(uri); // Handle uploading and OCR processing
       } else {
         console.error('Image URI is undefined');
       }
     }
   };
-  
+
+  const handleUploadAndOcr = async (uri) => {
+    try {
+      // Convert the image URI to a Blob
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      // Create a reference in Firebase Storage
+      const storageRef = ref(storage, `images/${Date.now()}.png`);
+
+      // Upload the Blob to Firebase Storage
+      const snapshot = await uploadBytes(storageRef, blob);
+
+      // Get the download URL of the uploaded image
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      console.log('Image uploaded successfully. URL:', downloadURL);
+
+      // Send the image to OCR API and get the text
+      await sendToOcrSpace(uri, downloadURL);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+    }
+  };
+
+  const sendToOcrSpace = async (imageUri, imageUrl) => {
+    try {
+      const apiKey = 'K81013753788957';
+      const formData = new FormData();
+
+      formData.append('apikey', apiKey);
+      formData.append('language', 'eng');
+      formData.append('filetype', 'png'); // Explicitly specify the file type
+
+      formData.append('file', {
+        uri: imageUri,
+        type: 'image/png', // Ensure MIME type matches the image type
+        name: 'image.png', // Use an appropriate file name
+      });
+
+      const response = await fetch('https://api.ocr.space/parse/image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const result = await response.json();
+      console.log('OCR Response:', result); // Log the entire response
+
+      let extractedText = 'No text found';
+      if (result.ParsedResults && result.ParsedResults.length > 0) {
+        extractedText = result.ParsedResults[0].ParsedText || 'No text found';
+      }
+      setOcrText(extractedText);
+
+      // Save the OCR text and image URL to Firestore
+      await saveOcrDataToFirestore(extractedText, imageUrl);
+    } catch (error) {
+      console.error('OCR Error:', error); // Log any errors
+      setOcrText('Error processing image');
+    }
+  };
+
+  const saveOcrDataToFirestore = async (ocrText, imageUrl) => {
+    try {
+      const auth = getAuth(app);
+      if (auth.currentUser) {
+        // Add a new document with a generated id to the "patients" collection
+        const docRef = await addDoc(collection(db, "patients"), {
+          name: patientName,
+          age,
+          gender,
+          address,
+          contactInfo,
+          diagnosis,
+          prescription,
+          userId: auth.currentUser.uid, // Associate patient with the user's UID
+          ocrText: ocrText, // Add extracted OCR text
+          imageUrl: imageUrl, // Add the image URL
+        });
+
+        console.log("Document written with ID: ", docRef.id);
+        // Navigate back to the patient list and pass along the new patient's info if needed
+        navigation.goBack();
+      } else {
+        console.error("No user signed in to add a patient.");
+      }
+    } catch (e) {
+      console.error("Error adding document: ", e);
+    }
+  };
 
   const handleCameraOpen = () => {
     handleImagePicking(true);
@@ -88,62 +181,6 @@ const PatientFormScreen = () => {
     handleImagePicking(false);
   };
 
-  const convertToBase64 = async (uri) => {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result.split(',')[1]; // Get Base64 string without prefix
-        console.log('Base64 Image Data:', base64String); // Log the Base64 string
-        resolve(base64String);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  };
-  
-
-  const sendToOcrSpace = async (imageUri) => {
-    try {
-      const apiKey = 'K81013753788957';
-      const formData = new FormData();
-  
-      formData.append('apikey', apiKey);
-      formData.append('language', 'eng');
-      formData.append('filetype', 'png'); // Explicitly specify the file type
-  
-      formData.append('file', {
-        uri: imageUri,
-        type: 'image/png', // Ensure MIME type matches the image type
-        name: 'image.png', // Use an appropriate file name
-      });
-  
-      const response = await fetch('https://api.ocr.space/parse/image', {
-        method: 'POST',
-        body: formData,
-      });
-  
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-  
-      const result = await response.json();
-      console.log('OCR Response:', result); // Log the entire response
-  
-      if (result.ParsedResults && result.ParsedResults.length > 0) {
-        setOcrText(result.ParsedResults[0].ParsedText || 'No text found');
-      } else {
-        setOcrText('No text found');
-      }
-    } catch (error) {
-      console.error('OCR Error:', error); // Log any errors
-      setOcrText('Error processing image');
-    }
-  };
-  
-  
   const handleSpeechResults = (event) => {
     const { value } = event;
     setTranscribedText(value.join(' '));
@@ -179,43 +216,6 @@ const PatientFormScreen = () => {
       setTranscribedText("Error processing audio");
     }
   };
-
-  const handleSave = useCallback(async () => {
-    try {
-      // Ensure the user is signed in to get their UID
-      const auth = getAuth(app);
-      if (auth.currentUser) {
-        // Add a new document with a generated id to the "patients" collection
-        const docRef = await addDoc(collection(db, "patients"), {
-          name: patientName,
-          age,
-          gender,
-          address,
-          contactInfo,
-          diagnosis,
-          prescription,
-          userId: auth.currentUser.uid, // Associate patient with the user's UID
-        });
-
-        console.log("Document written with ID: ", docRef.id);
-        // Navigate back to the patient list and pass along the new patient's info if needed
-        navigation.goBack(); // Or you could navigate to a specific route that displays patient details
-      } else {
-        console.error("No user signed in to add a patient.");
-      }
-    } catch (e) {
-      console.error("Error adding document: ", e);
-    }
-  }, [
-    patientName,
-    age,
-    gender,
-    address,
-    contactInfo,
-    diagnosis,
-    prescription,
-    navigation,
-  ]);
 
   useEffect(() => {
     return () => {
