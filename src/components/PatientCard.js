@@ -1,15 +1,18 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-const PatientCard = ({ name, age, medicalHistory }) => {
-const navigation = useNavigation();
+const PatientCard = ({ name, age, medicalHistory, patientId }) => {  // Accept patientId as prop
+  const navigation = useNavigation();
   return (
     <View style={styles.cardContainer}>
       <Text style={styles.name}>{name}</Text>
       <Text style={styles.age}>Age: {age}</Text>
       <Text style={styles.medicalHistory}>{medicalHistory}</Text>
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('AddDetails')}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate('AddDetails', { patientId })} // Pass patientId when navigating
+      >
         <Text style={styles.buttonText}>ADD MORE DETAILS</Text>
       </TouchableOpacity>
     </View>

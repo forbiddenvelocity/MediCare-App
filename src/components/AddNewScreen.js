@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,16 +7,20 @@ import {
   StyleSheet,
   ScrollView,
   Image,
+  Button,
+  Alert,
+  Switch,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Audio } from "expo-av";
 import axios from "axios";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, collection, addDoc } from "firebase/firestore";
+import { getFirestore, addDoc, collection } from "firebase/firestore";
 import { app } from "../../firebaseConfig";
 import { FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-
+import { firestore } from "../../firebaseConfig.js";
+import Voice from "@react-native-voice/voice";
 const PatientFormScreen = () => {
   const navigation = useNavigation();
   const [patientName, setPatientName] = useState("");
@@ -26,6 +30,7 @@ const PatientFormScreen = () => {
   const [contactInfo, setContactInfo] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
   const [prescription, setPrescription] = useState("");
+  const [isPatientFlagged, setIsPatientFlagged] = useState(false);
 
   const [recording, setRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -37,10 +42,14 @@ const PatientFormScreen = () => {
 
   const db = getFirestore(app);
 
+  const toggleFlagSwitch = () => {
+    setIsPatientFlagged((previousState) => !previousState);
+  };
+
   const recordingOptions = {
     // Check if the following format is compatible with your API and devices
     android: {
-      extension: '.wav',
+      extension: ".wav",
       outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_DEFAULT,
       audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_DEFAULT,
       sampleRate: 44100,
@@ -48,7 +57,7 @@ const PatientFormScreen = () => {
       bitRate: 128000,
     },
     ios: {
-      extension: '.wav',
+      extension: ".wav",
       audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_MAX,
       sampleRate: 44100,
       numberOfChannels: 2,
@@ -62,7 +71,6 @@ const PatientFormScreen = () => {
   const handleImagePicking = async (pickFromCamera) => {
     let pickerResult;
 
-    // Get permission first
     const permissionResult = await (pickFromCamera
       ? ImagePicker.requestCameraPermissionsAsync()
       : ImagePicker.requestMediaLibraryPermissionsAsync());
@@ -72,7 +80,6 @@ const PatientFormScreen = () => {
       return;
     }
 
-    // Launch the picker
     pickerResult = pickFromCamera
       ? await ImagePicker.launchCameraAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -88,12 +95,11 @@ const PatientFormScreen = () => {
         });
 
     if (!pickerResult.cancelled) {
-      setImage(pickerResult.uri);
-      sendToNewOCRAPI(pickerResult.uri);
+      setImage(pickerResult?.assets[0].uri);
+      sendToNewOCRAPI(pickerResult?.assets[0].uri);
     }
   };
 
-  // Modify handleCameraOpen and handleGalleryOpen to use handleImagePicking
   const handleCameraOpen = () => {
     handleImagePicking(true);
   };
@@ -104,38 +110,73 @@ const PatientFormScreen = () => {
 
   const sendToNewOCRAPI = async (imageUri) => {
     try {
+      if (!imageUri) {
+        throw new Error("Image URI is empty or undefined");
+      }
+
+      console.log("Image URI:", imageUri);
+
       const formData = new FormData();
-      formData.append('srcImg', {
-        uri: imageUri,
-        type: 'image/png', // Adjust the MIME type to match your image type
-        name: 'image.png', // Adjust the filename to match your image
+
+      formData.append("image", {
+        uri: imageUri.startsWith("file://") ? imageUri : `file://${imageUri}`,
+        type: "image/png",
+        name: "image.png",
       });
-      formData.append('Session', 'string'); // If required by the API
-  
-      const response = await fetch('https://ocr-image-to-text4.p.rapidapi.com/', {
-        method: 'POST',
-        headers: {
-          'X-RapidAPI-Key': 'e92edab7ecmsh10154b4bee4b96cp1d7ca5jsn30f647611c4c',
-          'X-RapidAPI-Host': 'ocr-image-to-text4.p.rapidapi.com',
-          // 'Content-Type': 'multipart/form-data' may be needed, but often it's not required as fetch adds it automatically with the correct boundary.
-        },
-        body: formData,
-      });
-  
+
+      const base64String = await getBase64FromUri(imageUri);
+      formData.append("base64", base64String);
+
+      const response = await fetch(
+        "https://ocr-extract-text.p.rapidapi.com/ocr",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "multipart/form-data",
+            "x-rapidapi-host": "ocr-extract-text.p.rapidapi.com",
+            "x-rapidapi-key":
+              "e92edab7ecmsh10154b4bee4b96cp1d7ca5jsn30f647611c4c",
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
       const responseData = await response.json();
-      console.log('OCR Response:', responseData);
-  
+      console.log("OCR Response:", responseData);
+
       if (responseData && responseData.text) {
         setOcrText(responseData.text);
       } else {
-        setOcrText('No text returned from OCR service');
+        setOcrText("No text returned from OCR service");
       }
     } catch (error) {
-      console.error('New OCR API Error: ', error);
-      setOcrText('Error processing image');
+      console.error("New OCR API Error: ", error);
+      setOcrText("Error processing image");
     }
   };
-  
+
+  const getBase64FromUri = async (uri) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = function () {
+        const reader = new FileReader();
+        reader.onloadend = function () {
+          resolve(reader.result.split(",")[1]);
+        };
+        reader.readAsDataURL(xhr.response);
+      };
+      xhr.onerror = function () {
+        reject("Failed to convert image to Base64");
+      };
+      xhr.open("GET", uri);
+      xhr.responseType = "blob";
+      xhr.send();
+    });
+  };
 
   const uploadRecording = async (recordingUri) => {
     try {
@@ -145,33 +186,34 @@ const PatientFormScreen = () => {
         type: "audio/wav", // Ensure this matches the actual audio file type
         name: "recording.wav", // The filename doesn't affect the API request
       });
-  
+
       const response = await fetch(
         "https://whisper-speech-to-text1.p.rapidapi.com/speech-to-text",
         {
           method: "POST",
           headers: {
-            "X-RapidAPI-Key": "e92edab7ecmsh10154b4bee4b96cp1d7ca5jsn30f647611c4c",
+            "X-RapidAPI-Key":
+              "e92edab7ecmsh10154b4bee4b96cp1d7ca5jsn30f647611c4c",
             "X-RapidAPI-Host": "whisper-speech-to-text1.p.rapidapi.com",
           },
           body: formData,
         }
       );
-  
+
       // First, check if the response was ok (status code in the range 200-299)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-  
+
       // Then check the content type to make sure it's "application/json"
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         throw new TypeError("Oops, we haven't got JSON!");
       }
-  
+
       const responseData = await response.json();
       console.log("Transcription Response:", responseData);
-  
+
       // Check for responseData.text instead of responseData.transcription
       if (responseData && responseData.text) {
         setTranscribedText(responseData.text); // Set the actual text returned from the API
@@ -185,55 +227,19 @@ const PatientFormScreen = () => {
     }
   };
 
-  const handleSave = useCallback(async () => {
-    try {
-      // Ensure the user is signed in to get their UID
-      const auth = getAuth(app);
-      if (auth.currentUser) {
-        // Add a new document with a generated id to the "patients" collection
-        const docRef = await addDoc(collection(db, "patients"), {
-          name: patientName,
-          age,
-          gender,
-          address,
-          contactInfo,
-          diagnosis,
-          prescription,
-          userId: auth.currentUser.uid, // Associate patient with the user's UID
-        });
-
-        console.log("Document written with ID: ", docRef.id);
-        // Navigate back to the patient list and pass along the new patient's info if needed
-        navigation.goBack(); // Or you could navigate to a specific route that displays patient details
-      } else {
-        console.error("No user signed in to add a patient.");
-      }
-    } catch (e) {
-      console.error("Error adding document: ", e);
-    }
-  }, [
-    patientName,
-    age,
-    gender,
-    address,
-    contactInfo,
-    diagnosis,
-    prescription,
-    navigation,
-  ]);
-
-
   const startRecording = async () => {
     try {
       const permission = await Audio.requestPermissionsAsync();
-      if (permission.status === 'granted') {
+      if (permission.status === "granted") {
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: true,
           playsInSilentModeIOS: true,
         });
 
         // Use the recordingOptions defined above
-        const { recording } = await Audio.Recording.createAsync(recordingOptions);
+        const { recording } = await Audio.Recording.createAsync(
+          recordingOptions
+        );
         setRecording(recording);
         setIsRecording(true);
         console.log("Started recording");
@@ -259,7 +265,97 @@ const PatientFormScreen = () => {
       console.error("Could not stop recording", error);
     }
   };
+  const [started, setStarted] = useState(false);
+  const [results, setResults] = useState("");
+  const [lastResult, setLastResult] = useState("");
+  useEffect(() => {
+    Voice.onSpeechError = onSpeechError;
+    Voice.onSpeechResults = onSpeechResults;
 
+    return () => {
+      Voice.destroy().then(() => Voice.removeAllListeners());
+    };
+  }, []);
+
+  const startSpeechToText = async () => {
+    try {
+      await Voice.start("en-US");
+      setStarted(true);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const stopSpeechToText = async () => {
+    try {
+      await Voice.stop();
+      setStarted(false);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const onSpeechResults = (result) => {
+    const newResult = result.value.join(" ");
+
+    if (newResult.length > 0 && newResult !== lastResult) {
+      setResults(newResult);
+      setLastResult(newResult);
+    }
+  };
+
+  const onSpeechError = (error) => {
+    console.log("Speech error:", error);
+  };
+
+  const handleSave = useCallback(async () => {
+    try {
+      const auth = getAuth(app);
+      if (auth.currentUser) {
+        console.log(
+          "Document written with ID: ",
+
+          results,
+          ocrText
+        );
+
+        const docRef = await addDoc(collection(db, "patients"), {
+          name: patientName,
+          age,
+          gender,
+          address,
+          contactInfo,
+          diagnosis,
+          prescription,
+          speechText: results,
+          ocrText: ocrText,
+          userId: auth.currentUser.uid,
+          flagged: isPatientFlagged,
+        });
+
+        console.log("Document written with ID: ", docRef.id, results, ocrText);
+        // Navigate back to the patient list and pass along the new patient's info if needed
+        navigation.goBack(); // Or you could navigate to a specific route that displays patient details
+      } else {
+        console.error("No user signed in to add a patient.");
+      }
+    } catch (e) {
+      console.error("Error adding document: ", e);
+    }
+  }, [
+    patientName,
+    age,
+    gender,
+    address,
+    contactInfo,
+    diagnosis,
+    prescription,
+    navigation,
+    results,
+    ocrText,
+    image,
+    isPatientFlagged,
+  ]);
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -277,32 +373,32 @@ const PatientFormScreen = () => {
           style={styles.input}
           placeholder="Patient Name"
           value={patientName}
-          onChangeText={setPatientName}
+          onChangeText={(val) => setPatientName(val)}
         />
         <TextInput
           style={styles.input}
           placeholder="Age"
           value={age}
-          onChangeText={setAge}
+          onChangeText={(val) => setAge(val)}
           keyboardType="numeric"
         />
         <TextInput
           style={styles.input}
           placeholder="Gender"
           value={gender}
-          onChangeText={setGender}
+          onChangeText={(val) => setGender(val)}
         />
         <TextInput
           style={styles.input}
           placeholder="Address"
           value={address}
-          onChangeText={setAddress}
+          onChangeText={(val) => setAddress(val)}
         />
         <TextInput
           style={styles.input}
           placeholder="Contact Information"
           value={contactInfo}
-          onChangeText={setContactInfo}
+          onChangeText={(val) => setContactInfo(val)}
         />
       </View>
       <View style={styles.formGroup}>
@@ -311,7 +407,7 @@ const PatientFormScreen = () => {
           style={styles.input}
           placeholder=""
           value={diagnosis}
-          onChangeText={setDiagnosis}
+          onChangeText={(val) => setDiagnosis(val)}
         />
       </View>
       <View style={styles.formGroup}>
@@ -320,14 +416,24 @@ const PatientFormScreen = () => {
           style={styles.input}
           placeholder=""
           value={prescription}
-          onChangeText={setPrescription}
+          onChangeText={(val) => setPrescription(val)}
         />
       </View>
+
+      <View style={styles.formGroup}>
+        <Text style={styles.sectionTitle}>Flag Patient as Not Fit for Driving</Text>
+        <Switch
+          onValueChange={toggleFlagSwitch}
+          value={isPatientFlagged} // The flag status will be updated via the switch
+        />
+        <Text>{isPatientFlagged ? "Flagged as Not Fit for Driving" : "Fit for Driving"}</Text>
+      </View>
+
       <View style={styles.medicareAi}>
         <Text style={styles.bottomheaderTitle}>MediCare Ai</Text>
         <Text style={styles.sectionTitle}>Text to Speech</Text>
         <TouchableOpacity
-          onPress={isRecording ? stopRecording : startRecording}
+          onPress={started ? stopSpeechToText : startSpeechToText}
         >
           <Image
             style={styles.speakerIcon}
@@ -336,9 +442,8 @@ const PatientFormScreen = () => {
             }}
           />
         </TouchableOpacity>
-
         <View style={styles.transcribedTextContainer}>
-          <Text style={styles.transcribedText}>{transcribedText}</Text>
+          <Text style={styles.transcribedText}>{results}</Text>
         </View>
         <Text style={styles.sectionTitle1}>Optical Character Recognition</Text>
         <TouchableOpacity onPress={handleCameraOpen}>
@@ -367,6 +472,14 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 30,
     color: "#f57c00",
+  },
+  button: {
+    backgroundColor: "#f57c00",
+    width: "80%",
+    padding: 15,
+    alignItems: "center",
+    borderRadius: 5,
+    marginVertical: 10,
   },
   header: {
     flexDirection: "row",
