@@ -31,6 +31,7 @@ const PatientFormScreen = () => {
   const [diagnosis, setDiagnosis] = useState("");
   const [prescription, setPrescription] = useState("");
   const [isPatientFlagged, setIsPatientFlagged] = useState(false);
+  const [patientAadharId, setPatientAadharId] = useState("");
 
   const [recording, setRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -329,6 +330,7 @@ const PatientFormScreen = () => {
           prescription,
           speechText: results,
           ocrText: ocrText,
+          patientAadharId,
           userId: auth.currentUser.uid,
           flagged: isPatientFlagged,
         });
@@ -355,6 +357,7 @@ const PatientFormScreen = () => {
     ocrText,
     image,
     isPatientFlagged,
+    patientAadharId,
   ]);
   return (
     <ScrollView style={styles.container}>
@@ -387,6 +390,13 @@ const PatientFormScreen = () => {
           placeholder="Gender"
           value={gender}
           onChangeText={(val) => setGender(val)}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Patient Aadhar ID"
+          value={patientAadharId}
+          onChangeText={(val) => setPatientAadharId(val)} // Update state
+          keyboardType="numeric"
         />
         <TextInput
           style={styles.input}
